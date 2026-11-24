@@ -1,0 +1,17 @@
+# Grabadora 0.1.0
+
+Primera versión: grabadora de sonido de la familia, clara u oscura, con acento rojo.
+- **Lista «Grabadora»** con buscar y ajustes; «Sin grabaciones» con un micrófono; cada grabación con nombre
+  («20261121_063640» de fábrica), fecha, duración y sus marcas.
+- **Grabar:** botón rojo; hoja con el nombre, onda en vivo (regla de tiempo y cabezal rojo), «00:00:01», Grabando / En
+  pausa, marcar, pausar/reanudar y ✓ para guardar. AAC en .m4a en Música/Grabadora; sigue con la pantalla apagada
+  (servicio de micrófono con notificación Pausar/Detener).
+- **Reproducir:** onda del archivo con marcas (toque para ir), barra, −10 s / +10 s y velocidad 0,5×–2×.
+- **Selección** (mantener pulsado): Todo, Compartir, Renombrar, Eliminar («¿Eliminar este archivo?», a la papelera en
+  Android 11+) y Detalles.
+- **Ajustes:** calidad (64/128/256 kbps, 44,1/48 kHz), grabaciones anteriores, Modo MCP, icono de la app (5), temas,
+  privacidad y versión.
+- **Modo MCP** (`grb_`, módulo `rec_`): `rec_list`, `rec_get` y, con lectura y escritura, `rec_rename`. La IA nunca graba,
+  escucha ni borra. «Redireccionar a Hub», «Conectar todas» y Lucía sin internet, como Reloj.
+- **Resumen para Inicio:** grabando ahora, cuántas hay y la última.
+- 22 pruebas.

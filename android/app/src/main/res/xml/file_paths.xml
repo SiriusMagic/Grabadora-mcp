@@ -1,0 +1,2 @@
+<!-- Android 8–9: the recordings live in the app's own music folder; only they can be shared. -->
+<paths><external-files-path name="recordings" path="Music/Grabadora/" /></paths>

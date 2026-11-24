@@ -1,0 +1,53 @@
+package com.zirakusa.grabadora.mcp
+
+import android.content.ContentProvider
+import android.content.ContentValues
+import android.content.pm.PackageManager
+import android.database.Cursor
+import android.net.Uri
+import android.os.Bundle
+
+/**
+ * «Redireccionar a Hub», as in Stone: the Gateway Hub app on this phone gets Grabadora's hub link by itself. Three locks:
+ * Android's signature permission on this provider, the caller's signature checked again here, and the user's switch.
+ */
+object HubLink {
+    fun answer(sameDeveloper: Boolean): Bundle = when {
+        !sameDeveloper -> error("NOT_SAME_DEVELOPER", "Solo apps firmadas por el mismo desarrollador que Grabadora.")
+        !McpMode.hubRedirect -> error("REDIRECT_OFF", "Activa «Redireccionar a Hub» en Grabadora › Ajustes › Modo MCP.")
+        McpMode.relayUrl.isBlank() -> error("NO_RELAY", "Esta versión de Grabadora no tiene enlace público (relay).")
+        else -> Bundle().apply { putString("link", McpMode.hubLink()) }
+    }
+    /** «Conectar todas» in Gateway Hub: the user's tap there turns this app's «Redireccionar a Hub» on. */
+    fun connect(sameDeveloper: Boolean): Bundle { if (sameDeveloper) McpMode.connectFromHub(); return answer(sameDeveloper) }
+
+    /** One tool for Lucía, on the phone: [request] is a JSON-RPC «tools/call»; the answer comes back in «response». */
+    fun tool(sameDeveloper: Boolean, request: String?): Bundle = when {
+        !sameDeveloper || !McpMode.hubRedirect -> answer(sameDeveloper)
+        request.isNullOrBlank() -> error("BAD_REQUEST", "Falta la petición.")
+        else -> McpMode.local(request)?.let { r -> Bundle().apply { putString("response", r) } } ?: error("NOT_READY", "La app aún no está lista.")
+    }
+
+    private fun error(code: String, message: String) = Bundle().apply { putString("error", code); putString("message", message) }
+}
+
+class HubLinkProvider : ContentProvider() {
+    override fun onCreate() = true
+    override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        if (method !in setOf("link", "connect", "tool")) return null
+        val context = context ?: return null
+        val caller = callingPackage
+        val same = caller != null && context.packageManager.checkSignatures(context.packageName, caller) == PackageManager.SIGNATURE_MATCH
+        if (same) McpMode.load(context)
+        return when (method) {
+            "connect" -> HubLink.connect(same)
+            "tool" -> HubLink.tool(same, extras?.getString("request"))
+            else -> HubLink.answer(same)
+        }
+    }
+    override fun query(uri: Uri, p: Array<out String>?, s: String?, a: Array<out String>?, o: String?): Cursor? = null
+    override fun getType(uri: Uri): String? = null
+    override fun insert(uri: Uri, values: ContentValues?): Uri? = null
+    override fun delete(uri: Uri, s: String?, a: Array<out String>?) = 0
+    override fun update(uri: Uri, v: ContentValues?, s: String?, a: Array<out String>?) = 0
+}
