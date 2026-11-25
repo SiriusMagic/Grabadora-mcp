@@ -1,5 +1,6 @@
 package com.zirakusa.grabadora.mcp
 
+import com.zirakusa.grabadora.data.Audio
 import com.zirakusa.grabadora.data.Clock
 import com.zirakusa.grabadora.data.Names
 import com.zirakusa.grabadora.data.Recording
@@ -10,12 +11,19 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
-/** What the tools read and change; the app gives the phone's recordings, tests a fake. Never the audio itself. */
+/**
+ * What the tools read and change; the app gives the phone's recordings, tests a fake. The audio only through [read], and
+ * only while the person has turned on «Dejar que la IA escuche las grabaciones» ([aiListen]).
+ */
 interface RecorderData {
     fun recordings(): List<Recording>
     /** Gives [recording] the (already clean and unique) [name]; null when only the person on the phone may (not ours). */
     fun rename(recording: Recording, name: String): Recording?
     fun zone(): ZoneId = ZoneId.systemDefault()
+    /** Modo MCP › «Dejar que la IA escuche las grabaciones». */
+    fun aiListen(): Boolean = false
+    /** Up to [max] bytes of [recording]'s file from [offset]; null if it can't be read (deleted meanwhile, not ours…). */
+    fun read(recording: Recording, offset: Long, max: Int): ByteArray? = null
 }
 
 /** An expected failure the AI can read (structuredContent.error.code), never a crash. */
@@ -31,6 +39,8 @@ object RecTools {
 
     const val LIMIT = 100
     const val LIMIT_MAX = 500
+    /** rec_audio's part size: small enough for one relay message and the hub's bridge, even as base64. */
+    const val PART_BYTES = Audio.PART
 
     private fun schema(required: List<String>, vararg props: Pair<String, JSONObject>) = JSONObject()
         .put("type", "object").put("properties", JSONObject().apply { props.forEach { (k, v) -> put(k, v) } })
@@ -40,13 +50,16 @@ object RecTools {
 
     val tools = listOf(
         Tool("rec_list", "The phone's recordings, newest first: id, name, date and time (phone's local time), length (seconds and " +
-            "h:mm:ss), size (bytes and «3,20 MB») and how many flags it has. Never the audio.", false,
+            "h:mm:ss), size (bytes and «3,20 MB») and how many flags it has. The audio itself only through rec_audio.", false,
             schema(emptyList(), "query" to prop("string", "Only names with all these words (accents and case do not matter)."),
                 "limit" to prop("integer", "At most this many (1–$LIMIT_MAX, default $LIMIT)."))),
         Tool("rec_get", "One recording's details: file name, folder, size, date, length and its flags (seconds from the start).",
             false, schema(listOf("id"), id)),
         Tool("rec_rename", "Renames a recording (the file keeps the .m4a ending). If another one has that name, «(2)» is added.",
             true, schema(listOf("id", "name"), id, "name" to prop("string", "The new name, up to ${Names.MAX} characters."))),
+        Tool("rec_audio", "The audio of one recording, so it can be transcribed: its date and time, length and size, and the .m4a " +
+            "(AAC) as base64 in parts (join parts 1…parts in order). Only if the person allowed it in Grabadora › Modo MCP; " +
+            "otherwise NOT_ALLOWED.", true, schema(listOf("id"), id, "part" to prop("integer", "Which part, from 1 (default 1).")))
     )
 
     fun available(access: Access) = tools.filter { !it.write || access == Access.WRITE }
@@ -62,6 +75,7 @@ object RecTools {
         return when (name) {
             "rec_list" -> list(args, data, zone)
             "rec_get" -> JSONObject().put("recording", details(find(args, data), zone))
+            "rec_audio" -> audio(args, data, zone)
             else -> rename(args, data, zone)
         }
     }
@@ -86,6 +100,27 @@ object RecTools {
         return JSONObject().put("recording", details(renamed, zone))
     }
 
+    /**
+     * The audio of one recording (for a model to transcribe it), in parts of [PART_BYTES] so each answer fits through the
+     * relay and the hub: join «audio_base64» of parts 1…parts in order and you have the .m4a. With its date and time, length
+     * and weight. Only with a read-and-write token and while the person allows it on the phone; never while recording.
+     */
+    private fun audio(args: JSONObject, data: RecorderData, zone: ZoneId): JSONObject {
+        if (!data.aiListen()) throw ToolFailure("NOT_ALLOWED", "The person hasn't let the AI listen to recordings. Ask them to turn on " +
+            "Grabadora › Modo MCP › «Dejar que la IA escuche las grabaciones».")
+        val recording = find(args, data)
+        val part = if (!args.has("part")) 1L else integer(args.opt("part")) ?: throw ToolFailure("BAD_ARGUMENT", "part must be an integer.")
+        val parts = Audio.parts(recording.size)
+        if (part !in 1..parts) throw ToolFailure("BAD_ARGUMENT", "part must be between 1 and $parts.")
+        val bytes = data.read(recording, (part - 1) * PART_BYTES, PART_BYTES)?.takeIf { it.isNotEmpty() || recording.size == 0L }
+            ?: throw ToolFailure("NOT_FOUND", "The audio of recording ${recording.id} can't be read (it may have been deleted).")
+        return JSONObject().put("recording", summary(recording, zone).put("file_name", recording.fileName))
+            .put("mime_type", Audio.MIME).put("part", part).put("parts", parts).put("part_bytes", bytes.size)
+            .apply { if (part < parts) put("next_part", part + 1) }
+            .put("how", "Join audio_base64 of parts 1 to $parts in order, decode it and you have the .m4a (AAC) to transcribe.")
+            .put("audio_base64", java.util.Base64.getEncoder().encodeToString(bytes))
+    }
+
     private fun integer(value: Any?): Long? = (value as? Number)?.takeIf { it is Int || it is Long }?.toLong()
 
     private fun find(args: JSONObject, data: RecorderData): Recording {
@@ -95,7 +130,7 @@ object RecTools {
 
     private fun date(millis: Long, zone: ZoneId) = Instant.ofEpochMilli(millis).atZone(zone).toLocalDateTime().truncatedTo(ChronoUnit.SECONDS).toString()
 
-    /** Name, date and time, length and weight: what a model needs to pick a recording (never the audio nor where it is). */
+    /** Name, date and time, length and weight: what a model needs to pick a recording (never where it is; the audio only through rec_audio). */
     private fun summary(r: Recording, zone: ZoneId) = JSONObject().put("id", r.id).put("name", r.name).put("date", date(r.date, zone))
         .put("seconds", Clock.seconds(r.durationMs)).put("length", Clock.duration(r.durationMs))
         .put("size_bytes", r.size).put("size", Clock.size(r.size, java.util.Locale.forLanguageTag("es"))).put("markers", r.markers.size)

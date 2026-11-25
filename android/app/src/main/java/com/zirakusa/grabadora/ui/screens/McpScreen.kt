@@ -51,6 +51,13 @@ import com.zirakusa.grabadora.mcp.Token
             }
             if (McpMode.hubRedirect) Button(goToHub, colors = ButtonDefaults.buttonColors(RecColors.Accent, RecColors.OnAccent)) { Text(stringResource(R.string.mcp_go_to_hub)) }
         }
+        // The audio leaves only with this on (rec_audio): for a model to transcribe a recording. Also for Lucía and the hub.
+        Card(stringResource(R.string.mcp_listen)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.mcp_listen_hint), Modifier.weight(1f), color = RecColors.Muted)
+                Switch(McpMode.aiListen, McpMode::allowListening, colors = accent())
+            }
+        }
         if (McpMode.hubRedirect) return@Column
         Card(stringResource(R.string.mcp_tokens)) {
             if (creating) Editor({ creating = false }) { copy(McpMode.linkFor(it.secret)); creating = false }

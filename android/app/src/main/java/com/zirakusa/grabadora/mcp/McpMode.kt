@@ -21,6 +21,9 @@ object McpMode {
     var hubRedirect by mutableStateOf(false); private set
     var tokens by mutableStateOf(emptyList<Token>()); private set
     var state by mutableStateOf(RelayLink.State.OFFLINE); private set
+    /** «Dejar que la IA escuche las grabaciones» (rec_audio); off until the person turns it on. */
+    var aiListen by mutableStateOf(false); private set
+    private var settings: com.zirakusa.grabadora.data.Settings? = null
     /** Called on the main thread after a tool renamed a recording, so the list reloads. */
     var onChanged: () -> Unit = {}
 
@@ -44,10 +47,12 @@ object McpMode {
         relaySecret = SecretBox.open(p.getString("relay", "") ?: "").ifBlank {
             Token.secret().also { p.edit { putString("relay", SecretBox.seal(it)) } }
         }
+        settings = com.zirakusa.grabadora.data.Settings(com.zirakusa.grabadora.SharedValues(app)).also { aiListen = it.aiListen }
         data = LiveData(app)
         apply()
     }
 
+    fun allowListening(on: Boolean) { aiListen = on; settings?.aiListen = on }
     fun enable(on: Boolean) { enabled = on; prefs?.edit { putBoolean("enabled", on) }; apply() }
     fun redirect(on: Boolean) { hubRedirect = on; prefs?.edit { putBoolean("redirect", on) }; if (on) redirectToken(); apply() }
 
@@ -106,7 +111,21 @@ object McpMode {
 class LiveData(context: Context) : RecorderData {
     private val library = Library(context.applicationContext)
     private val main = Handler(Looper.getMainLooper())
+    private val settings = com.zirakusa.grabadora.data.Settings(com.zirakusa.grabadora.SharedValues(context.applicationContext))
+    private val resolver = context.applicationContext.contentResolver
     override fun recordings() = library.list()
+    override fun aiListen() = settings.aiListen
+    /** Straight from the recording's file on the phone (MediaStore); a part at a time, never kept anywhere. */
+    override fun read(recording: Recording, offset: Long, max: Int): ByteArray? = runCatching {
+        resolver.openInputStream(android.net.Uri.parse(recording.uri))?.use { input ->
+            var skipped = 0L
+            while (skipped < offset) { val n = input.skip(offset - skipped); if (n <= 0) break; skipped += n }
+            if (skipped < offset) return@use ByteArray(0)
+            val buffer = ByteArray(max); var got = 0
+            while (got < max) { val n = input.read(buffer, got, max - got); if (n < 0) break; got += n }
+            buffer.copyOf(got)
+        }
+    }.getOrNull()
     override fun rename(recording: Recording, name: String): Recording? {
         if (!recording.own) return null
         return runCatching { library.rename(recording, name) }.getOrNull()?.also { main.post { McpMode.onChanged() } }

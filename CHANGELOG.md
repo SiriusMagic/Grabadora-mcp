@@ -1,3 +1,12 @@
+# Grabadora 0.3.0: audio para transcribir
+
+- **«Dejar que la IA escuche las grabaciones»** (Modo MCP, apagado de fábrica): si lo enciendes, una IA con token de
+  lectura y escritura puede pedir el audio de una grabación con la herramienta nueva **`rec_audio`**, para transcribirlo a
+  texto. Sale con su **fecha y hora, duración y peso**, y el .m4a (AAC) por partes de 256 KB que se unen en orden (así
+  cabe por el relay y por Gateway Hub). Si la grabación cabe en una parte, también va como audio MCP directo. Apagado, el
+  audio nunca sale (`NOT_ALLOWED`). La IA sigue sin poder grabar ni borrar.
+- 23 pruebas.
+
 # Grabadora 0.2.0
 
 - **Iconos nuevos**: Metal (el de fábrica), Micrófono, Casete, Dulce y Píxel, en Ajustes › Icono de la app. Se quitan los

@@ -66,12 +66,25 @@ class McpHandler(private val tokens: () -> List<Token>, private val data: Record
 
     private suspend fun call(params: JSONObject, token: Token): JSONObject = try {
         val out = RecTools.call(params.optString("name"), params.optJSONObject("arguments") ?: JSONObject(), token.access, data)
-        JSONObject().put("content", JSONArray().put(JSONObject().put("type", "text").put("text", out.toString()))).put("structuredContent", out)
+        JSONObject().put("content", content(out)).put("structuredContent", out)
     } catch (failure: ToolFailure) {
         val error = JSONObject().put("error", JSONObject().put("code", failure.code).put("message", failure.message))
         JSONObject().put("isError", true).put("content", JSONArray().put(JSONObject().put("type", "text").put("text", "${failure.code}: ${failure.message}")))
             .put("structuredContent", error)
     }
+
+    /**
+     * What a client shows: the answer as text, except rec_audio's base64 (it is only in structuredContent, so it isn't sent
+     * twice). A recording that fits in one part also goes as an MCP audio block, for models that listen directly.
+     */
+    private fun content(out: JSONObject): JSONArray {
+        val audio = out.optString("audio_base64").takeIf { out.has("audio_base64") } ?: return JSONArray().put(text(out.toString()))
+        val shown = JSONObject(out.toString()).apply { remove("audio_base64") }.put("audio_base64", "(in structuredContent)")
+        return JSONArray().put(text(shown.toString())).apply {
+            if (out.optLong("parts") == 1L) put(JSONObject().put("type", "audio").put("data", audio).put("mimeType", out.optString("mime_type")))
+        }
+    }
+    private fun text(t: String) = JSONObject().put("type", "text").put("text", t)
 
     private fun grant(headers: Map<String, String>, query: Map<String, String>): Token? {
         val lower = headers.mapKeys { it.key.lowercase() }

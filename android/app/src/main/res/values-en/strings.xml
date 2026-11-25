@@ -86,7 +86,7 @@
     <string name="about">About</string>
     <string name="version_title">Version</string>
     <string name="privacy">Privacy policy</string>
-    <string name="privacy_text">Grabadora has no ads or analytics. The microphone is used only while you record, when you tap the red button; the AI can never record or listen. Recordings are kept only on this phone, in Music › Grabadora, and the settings, marks and waveforms stay out of cloud backups. Only if you turn on MCP Mode can the AI you connect with a token see the names, dates, lengths and marks of your recordings (never the audio) and, with a read-and-write token, rename them through the relay. Only you delete, on the phone.</string>
+    <string name="privacy_text">Grabadora has no ads or analytics. The microphone is used only while you record, when you tap the red button; the AI can never record. Recordings are kept only on this phone, in Music › Grabadora, and the settings, marks and waveforms stay out of cloud backups. Only if you turn on MCP Mode can the AI you connect with a token see the names, dates, lengths, sizes and marks of your recordings and, with a read-and-write token, rename them through the relay. The audio leaves only if you turn on «Let the AI listen to recordings» (in MCP Mode), so a model can transcribe it. Only you delete, on the phone.</string>
     <string name="mcp_settings_hint">Your AI (Claude, ChatGPT…) or Gateway Hub see and rename your recordings.</string>
     <string name="mcp_title">MCP mode</string>
     <string name="mcp_enable">Turn on MCP</string>
@@ -97,6 +97,8 @@
     <string name="mcp_offline">Offline</string>
     <string name="mcp_redirect">Redirect to Hub</string>
     <string name="mcp_redirect_hint">Gateway Hub manages permissions, expiry and support. No need to turn MCP on.</string>
+    <string name="mcp_listen">Let the AI listen to recordings</string>
+    <string name="mcp_listen_hint">So a model can transcribe them to text: with this on, an AI with a read-and-write token can ask for a recording\'s audio (with its date and time, length and size). Off, the audio never leaves.</string>
     <string name="mcp_go_to_hub">Go to Hub</string>
     <string name="mcp_paste_in_hub">Link copied. Paste it in Gateway Hub › Apps.</string>
     <string name="mcp_tokens">Tokens</string>

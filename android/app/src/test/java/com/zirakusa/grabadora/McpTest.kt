@@ -1,5 +1,6 @@
 package com.zirakusa.grabadora
 
+import com.zirakusa.grabadora.data.Audio
 import com.zirakusa.grabadora.data.Names
 import com.zirakusa.grabadora.data.Recording
 import com.zirakusa.grabadora.mcp.Access
@@ -34,7 +35,12 @@ class McpTest {
         Recording(3, "20261120_101010", "20261120_101010.m4a", at(5, 0), 2_000, 45_844, own = false),
     )
     private var renames = 0
+    private var listening = false
+    private var readable = true
     private val data = object : RecorderData {
+        override fun aiListen() = listening
+        override fun read(recording: Recording, offset: Long, max: Int): ByteArray? =
+            if (!readable) null else ByteArray(minOf(max.toLong(), recording.size - offset).toInt().coerceAtLeast(0)) { ((offset + it) % 251).toByte() }
         override fun recordings() = list.toList()
         override fun rename(recording: Recording, name: String): Recording? {
             if (!recording.own) return null
@@ -62,13 +68,15 @@ class McpTest {
     private fun names(token: Token) = rpc(token, "tools/list").getJSONArray("tools").let { t -> (0 until t.length()).map { t.getJSONObject(it).getString("name") } }
 
     @Test fun listsTheTools() {
-        assertEquals(listOf("rec_list", "rec_get", "rec_rename"), names(writer))
+        assertEquals(listOf("rec_list", "rec_get", "rec_rename", "rec_audio"), names(writer))
         assertEquals(listOf("rec_list", "rec_get"), names(reader))
         val init = rpc(writer, "initialize")
         assertEquals("grabadora", init.getJSONObject("serverInfo").getString("name"))
         assertEquals("hub", init.getJSONObject("_meta").getJSONObject(McpHandler.TOKEN_META).getString("kind"))
-        // The AI never records, listens or deletes: no such tool exists.
-        assertTrue(names(writer).none { it.contains("record") || it.contains("start") || it.contains("delete") || it.contains("audio") })
+        // The AI never records nor deletes: no such tool exists. It hears a recording only through rec_audio, which needs the
+        // person's switch on the phone (audioForTranscribing).
+        assertTrue(names(writer).none { it.contains("record") || it.contains("start") || it.contains("delete") })
+        assertEquals(listOf("rec_audio"), names(writer).filter { it.contains("audio") || it.contains("listen") })
     }
 
     @Test fun listsAndReadsRecordings() {
@@ -152,5 +160,32 @@ class McpTest {
         assertEquals(2, viaProvider.getInt("id"))
         McpMode.redirect(false)
         McpMode.relayUrl = relay                                          // as the other tests expect
+    }
+
+    /** rec_audio: only with the switch on and a read-and-write token; the .m4a in parts with its date, length and weight. */
+    @Test fun audioForTranscribing() {
+        assertEquals("NOT_ALLOWED", code("rec_audio", JSONObject().put("id", 1)).let { tool("rec_audio", JSONObject().put("id", 1)).getJSONObject("structuredContent").getJSONObject("error").getString("code") })
+        listening = true
+        assertTrue(tool("rec_audio", JSONObject().put("id", 1), reader).optBoolean("isError"))          // a read-only token can't
+        val first = ok("rec_audio", JSONObject().put("id", 1))                                          // 1 MB: four parts of 256 KB
+        assertEquals(4, first.getInt("parts")); assertEquals(1, first.getInt("part")); assertEquals(2, first.getInt("next_part"))
+        assertEquals("audio/mp4", first.getString("mime_type")); assertEquals(Audio.PART, first.getInt("part_bytes"))
+        val rec = first.getJSONObject("recording")
+        assertEquals("2026-11-21T06:00", rec.getString("date")); assertEquals("01:05", rec.getString("length")); assertEquals(1_048_576, rec.getLong("size_bytes"))
+        val joined = (1..4).flatMap { p -> java.util.Base64.getDecoder().decode(ok("rec_audio", JSONObject().put("id", 1).put("part", p)).getString("audio_base64")).toList() }
+        assertEquals(1_048_576, joined.size); assertEquals((300_000 % 251).toByte(), joined[300_000])   // the whole file, in order
+        assertFalse(ok("rec_audio", JSONObject().put("id", 1).put("part", 4)).has("next_part"))
+        val shown = tool("rec_audio", JSONObject().put("id", 1)).getJSONArray("content")
+        assertEquals(1, shown.length()); assertFalse(shown.getJSONObject(0).getString("text").contains(first.getString("audio_base64").take(40)))
+        val small = tool("rec_audio", JSONObject().put("id", 3)).getJSONArray("content")                 // one part: also an audio block
+        assertEquals("audio", small.getJSONObject(1).getString("type")); assertEquals("audio/mp4", small.getJSONObject(1).getString("mimeType"))
+        assertEquals("BAD_ARGUMENT", code("rec_audio", JSONObject().put("id", 1).put("part", 0)).let { "BAD_ARGUMENT" })
+        listOf(JSONObject().put("id", 1).put("part", 0), JSONObject().put("id", 1).put("part", 5), JSONObject().put("id", 1).put("part", "2"), JSONObject()).forEach {
+            assertEquals(it.toString(), "BAD_ARGUMENT", tool("rec_audio", it).getJSONObject("structuredContent").getJSONObject("error").getString("code"))
+        }
+        assertEquals("NOT_FOUND", tool("rec_audio", JSONObject().put("id", 999)).getJSONObject("structuredContent").getJSONObject("error").getString("code"))
+        readable = false
+        assertEquals("NOT_FOUND", tool("rec_audio", JSONObject().put("id", 1)).getJSONObject("structuredContent").getJSONObject("error").getString("code"))
+        assertEquals(1L, Audio.parts(0)); assertEquals(1L, Audio.parts(Audio.PART.toLong())); assertEquals(2L, Audio.parts(Audio.PART + 1L))
     }
 }
