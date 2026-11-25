@@ -1,3 +1,11 @@
+# Grabadora 0.2.0
+
+- **Iconos nuevos**: Metal (el de fábrica), Micrófono, Casete, Dulce y Píxel, en Ajustes › Icono de la app. Se quitan los
+  anteriores; si tenías uno elegido, pasa solo al nuevo que ocupa su lugar.
+- **Modo MCP**: `rec_list` da ahora, de cada grabación, la fecha y hora, la duración (segundos y «1:02:03») y el peso
+  (bytes y «3,20 MB»), como ya hacía `rec_get`. Sigue sin salir el audio.
+- 22 pruebas.
+
 # Grabadora 0.1.0
 
 Primera versión: grabadora de sonido de la familia, clara u oscura, con acento rojo.

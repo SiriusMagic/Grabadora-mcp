@@ -39,8 +39,8 @@ object RecTools {
     private val id = "id" to prop("integer", "The recording's id (from rec_list).")
 
     val tools = listOf(
-        Tool("rec_list", "The phone's recordings, newest first: id, name, date (phone's local time), length in seconds and how " +
-            "many flags it has. Never the audio.", false,
+        Tool("rec_list", "The phone's recordings, newest first: id, name, date and time (phone's local time), length (seconds and " +
+            "h:mm:ss), size (bytes and «3,20 MB») and how many flags it has. Never the audio.", false,
             schema(emptyList(), "query" to prop("string", "Only names with all these words (accents and case do not matter)."),
                 "limit" to prop("integer", "At most this many (1–$LIMIT_MAX, default $LIMIT)."))),
         Tool("rec_get", "One recording's details: file name, folder, size, date, length and its flags (seconds from the start).",
@@ -95,11 +95,13 @@ object RecTools {
 
     private fun date(millis: Long, zone: ZoneId) = Instant.ofEpochMilli(millis).atZone(zone).toLocalDateTime().truncatedTo(ChronoUnit.SECONDS).toString()
 
+    /** Name, date and time, length and weight: what a model needs to pick a recording (never the audio nor where it is). */
     private fun summary(r: Recording, zone: ZoneId) = JSONObject().put("id", r.id).put("name", r.name).put("date", date(r.date, zone))
-        .put("seconds", Clock.seconds(r.durationMs)).put("markers", r.markers.size)
+        .put("seconds", Clock.seconds(r.durationMs)).put("length", Clock.duration(r.durationMs))
+        .put("size_bytes", r.size).put("size", Clock.size(r.size, java.util.Locale.forLanguageTag("es"))).put("markers", r.markers.size)
 
     private fun details(r: Recording, zone: ZoneId) = summary(r, zone).put("file_name", r.fileName).put("location", r.location)
-        .put("size_bytes", r.size).put("length", Clock.duration(r.durationMs))
+
         .put("markers", JSONArray(r.markers.mapIndexed { i, at ->
             JSONObject().put("n", i + 1).put("at_seconds", Clock.seconds(at)).put("at", Clock.position(at))
         }))

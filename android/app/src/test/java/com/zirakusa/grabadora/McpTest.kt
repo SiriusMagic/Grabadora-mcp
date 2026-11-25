@@ -77,6 +77,8 @@ class McpTest {
         val first = all.getJSONArray("recordings").getJSONObject(0)
         assertEquals("Clase", first.getString("name")); assertEquals("2026-11-21T09:30", first.getString("date"))
         assertEquals(3723.0, first.getDouble("seconds"), 0.0); assertEquals(0, first.getInt("markers"))
+        assertTrue(first.getLong("size_bytes") >= 0); assertTrue(Regex("""\d+(,\d\d)? (B|KB|MB|GB)""").matches(first.getString("size")))   // date, length and weight
+        assertEquals("1:02:03", first.getString("length"))
         assertFalse(all.toString().contains("content://") || all.toString().contains("uri"))
         val found = ok("rec_list", JSONObject().put("query", "reunion").put("limit", 5))
         assertEquals(1, found.getInt("count")); assertEquals(2, found.getJSONArray("recordings").getJSONObject(0).getInt("markers"))
