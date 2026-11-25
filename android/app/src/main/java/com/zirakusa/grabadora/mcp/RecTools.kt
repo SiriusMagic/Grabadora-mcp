@@ -20,7 +20,7 @@ interface RecorderData {
     /** Gives [recording] the (already clean and unique) [name]; null when only the person on the phone may (not ours). */
     fun rename(recording: Recording, name: String): Recording?
     fun zone(): ZoneId = ZoneId.systemDefault()
-    /** Modo MCP › «Dejar que la IA escuche las grabaciones». */
+    /** Ajustes › «Dejar que la IA escuche las grabaciones». */
     fun aiListen(): Boolean = false
     /** Up to [max] bytes of [recording]'s file from [offset]; null if it can't be read (deleted meanwhile, not ours…). */
     fun read(recording: Recording, offset: Long, max: Int): ByteArray? = null
@@ -58,7 +58,7 @@ object RecTools {
         Tool("rec_rename", "Renames a recording (the file keeps the .m4a ending). If another one has that name, «(2)» is added.",
             true, schema(listOf("id", "name"), id, "name" to prop("string", "The new name, up to ${Names.MAX} characters."))),
         Tool("rec_audio", "The audio of one recording, so it can be transcribed: its date and time, length and size, and the .m4a " +
-            "(AAC) as base64 in parts (join parts 1…parts in order). Only if the person allowed it in Grabadora › Modo MCP; " +
+            "(AAC) as base64 in parts (join parts 1…parts in order). Only if the person allowed it in Grabadora › Ajustes; " +
             "otherwise NOT_ALLOWED.", true, schema(listOf("id"), id, "part" to prop("integer", "Which part, from 1 (default 1).")))
     )
 
@@ -107,7 +107,7 @@ object RecTools {
      */
     private fun audio(args: JSONObject, data: RecorderData, zone: ZoneId): JSONObject {
         if (!data.aiListen()) throw ToolFailure("NOT_ALLOWED", "The person hasn't let the AI listen to recordings. Ask them to turn on " +
-            "Grabadora › Modo MCP › «Dejar que la IA escuche las grabaciones».")
+            "Grabadora › Ajustes › «Dejar que la IA escuche las grabaciones».")
         val recording = find(args, data)
         val part = if (!args.has("part")) 1L else integer(args.opt("part")) ?: throw ToolFailure("BAD_ARGUMENT", "part must be an integer.")
         val parts = Audio.parts(recording.size)

@@ -155,8 +155,7 @@ class ScreenshotsTest {
         assertEquals(256, state.quality.kbps); assertEquals(48_000, state.sampleRate)
         compose.onNodeWithText("Modo MCP").assertExists()
         shot("settings")
-        compose.onNodeWithText("Modo MCP").performClick()
-        compose.onNodeWithText("Redireccionar a Hub").assertExists()
+        compose.onNodeWithText("Lo controla Arka", substring = true).assertExists()
         shot("mcp")
         state.page = Page.LIST
         state.changeTheme(ThemeMode.DARK)

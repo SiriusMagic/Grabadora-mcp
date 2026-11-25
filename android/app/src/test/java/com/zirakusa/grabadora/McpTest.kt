@@ -5,7 +5,6 @@ import com.zirakusa.grabadora.data.Names
 import com.zirakusa.grabadora.data.Recording
 import com.zirakusa.grabadora.mcp.Access
 import com.zirakusa.grabadora.mcp.HubLink
-import com.zirakusa.grabadora.mcp.Kind
 import com.zirakusa.grabadora.mcp.McpHandler
 import com.zirakusa.grabadora.mcp.McpMode
 import com.zirakusa.grabadora.mcp.RecorderData
@@ -23,7 +22,7 @@ import org.robolectric.annotation.Config
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-/** Grabadora's MCP: tools list, good calls, bad arguments, not found, read-only tokens, wrong and paused tokens, hub link. */
+/** Grabadora's MCP: tools list, good calls, bad arguments, not found, read-only tokens, wrong tokens, hub link. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class McpTest {
@@ -51,10 +50,9 @@ class McpTest {
         }
         override fun zone(): ZoneId = zone
     }
-    private val writer = Token("w", "Claude", "grb_" + "w".repeat(40), Access.WRITE, Kind.HUB, "Casa")
-    private val reader = Token("r", "Lector", "grb_" + "r".repeat(40), Access.READ)
-    private val paused = Token("p", "Viejo", "grb_" + "p".repeat(40), Access.WRITE, paused = true)
-    private val handler = McpHandler({ listOf(writer, reader, paused) }, data, "0.1.0")
+    private val writer = Token("grb_" + "w".repeat(40), Access.WRITE)
+    private val reader = Token("grb_" + "r".repeat(40), Access.READ)
+    private val handler = McpHandler({ listOf(writer, reader) }, data, "0.1.0")
 
     private fun rpc(token: Token, method: String, params: JSONObject = JSONObject()) = runBlocking {
         JSONObject(handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer ${token.secret}"), emptyMap(),
@@ -72,7 +70,7 @@ class McpTest {
         assertEquals(listOf("rec_list", "rec_get"), names(reader))
         val init = rpc(writer, "initialize")
         assertEquals("grabadora", init.getJSONObject("serverInfo").getString("name"))
-        assertEquals("hub", init.getJSONObject("_meta").getJSONObject(McpHandler.TOKEN_META).getString("kind"))
+        assertEquals("redirect", init.getJSONObject("_meta").getJSONObject(McpHandler.TOKEN_META).getString("kind"))
         // The AI never records nor deletes: no such tool exists. It hears a recording only through rec_audio, which needs the
         // person's switch on the phone (audioForTranscribing).
         assertTrue(names(writer).none { it.contains("record") || it.contains("start") || it.contains("delete") })
@@ -132,7 +130,7 @@ class McpTest {
 
     @Test fun wrongAndPausedTokensAndHubLink() = runBlocking {
         val body = """{"jsonrpc":"2.0","id":1,"method":"tools/list"}"""
-        assertEquals(401, handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer ${paused.secret}"), emptyMap(), body).status)
+        assertEquals(401, handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer wrong_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"), emptyMap(), body).status)
         assertEquals(401, handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer grb_wrong"), emptyMap(), body).status)
         assertEquals(401, handler.handle("POST", "/mcp", emptyMap(), emptyMap(), body).status)
         assertEquals(200, handler.handle("POST", "/mcp", emptyMap(), mapOf("token" to reader.secret), body).status)
@@ -140,26 +138,36 @@ class McpTest {
         assertTrue(Token.secret().startsWith("grb_"))
         assertEquals("NOT_SAME_DEVELOPER", HubLink.answer(false).getString("error"))
         assertEquals("REDIRECT_OFF", HubLink.answer(true).getString("error"))
-        // «Conectar todas» and Lucía's tools: only for the same developer, and tools only with «Redireccionar a Hub» on.
         assertEquals("NOT_SAME_DEVELOPER", HubLink.connect(false).getString("error"))
         assertEquals("NOT_SAME_DEVELOPER", HubLink.tool(false, "{}").getString("error"))
-        assertEquals("REDIRECT_OFF", HubLink.tool(true, "{}").getString("error"))
+        // Only the same developer (Arka) may connect, disconnect, read the status or run a tool.
+        listOf(HubLink.disconnect(false), HubLink.status(false)).forEach { assertEquals("NOT_SAME_DEVELOPER", it.getString("error")) }
     }
 
-    /** Lucía runs a tool on the phone through the same handler, only while «Redireccionar a Hub» is on. */
+    /** Lucía runs a tool on the phone through the same handler, with or without the public link; Arka turns that on and off. */
     @Test fun luciaRunsToolsOnThePhone() {
-        val relay = McpMode.relayUrl
-        McpMode.relayUrl = ""                                             // no relay in tests
-        McpMode.load(RuntimeEnvironment.getApplication())
-        McpMode.redirect(false)
-        assertEquals(null, McpMode.local("{}"))
-        HubLink.connect(true); assertTrue(McpMode.hubRedirect)            // «Conectar todas»
-        val list = JSONObject(McpMode.local("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")!!)
+        val relay = com.zirakusa.grabadora.mcp.McpMode.relayUrl
+        com.zirakusa.grabadora.mcp.McpMode.relayUrl = ""                                             // no relay in tests
+        com.zirakusa.grabadora.mcp.McpMode.load(org.robolectric.RuntimeEnvironment.getApplication())
+        com.zirakusa.grabadora.mcp.McpMode.turnRemote(false)
+        val list = JSONObject(com.zirakusa.grabadora.mcp.McpMode.local("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")!!)
         assertTrue(list.getJSONObject("result").getJSONArray("tools").length() > 0)
         val viaProvider = JSONObject(HubLink.tool(true, """{"jsonrpc":"2.0","id":2,"method":"tools/list"}""").getString("response"))
         assertEquals(2, viaProvider.getInt("id"))
-        McpMode.redirect(false)
-        McpMode.relayUrl = relay                                          // as the other tests expect
+        assertEquals("BAD_REQUEST", HubLink.tool(true, "").getString("error"))
+        assertEquals("NOT_SAME_DEVELOPER", HubLink.tool(false, "{}").getString("error"))
+        assertTrue(HubLink.status(true).containsKey("remote"))
+        HubLink.connect(true); assertTrue(com.zirakusa.grabadora.mcp.McpMode.remote)                 // Arka › «Activar MCP»
+        assertFalse(HubLink.disconnect(true).getBoolean("remote")); assertFalse(com.zirakusa.grabadora.mcp.McpMode.remote)
+        com.zirakusa.grabadora.mcp.McpMode.relayUrl = relay                                          // as the other tests expect
+    }
+
+    /** The hub's token from before Arka took over is kept, so the hub's link keeps working. */
+    @Test fun theOldHubTokenIsKept() {
+        val old = """[{"id":"a","secret":"${"l".repeat(44)}","kind":"llm"},{"id":"b","secret":"${"h".repeat(44)}","kind":"redirect"}]"""
+        assertEquals("h".repeat(44), com.zirakusa.grabadora.mcp.Legacy.redirectSecret(old))
+        assertEquals(null, com.zirakusa.grabadora.mcp.Legacy.redirectSecret("[]"))
+        assertEquals(null, com.zirakusa.grabadora.mcp.Legacy.redirectSecret(""))
     }
 
     /** rec_audio: only with the switch on and a read-and-write token; the .m4a in parts with its date, length and weight. */

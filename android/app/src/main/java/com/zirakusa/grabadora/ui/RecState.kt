@@ -17,7 +17,7 @@ import com.zirakusa.grabadora.ui.theme.ThemeMode
 import java.time.ZoneId
 
 /** Pages over the list. */
-enum class Page { LIST, PLAYER, SETTINGS, MCP }
+enum class Page { LIST, PLAYER, SETTINGS }
 
 /** The dialogs of selection mode. */
 enum class Dialog { RENAME, DELETE, DETAILS }

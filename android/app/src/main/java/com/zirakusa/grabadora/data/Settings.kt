@@ -26,7 +26,7 @@ class Settings(private val kv: KeyValues) {
         set(v) = kv.put("rate", v.takeIf { it in RATES }?.toString())
     var theme: String? get() = kv.get("theme"); set(v) = kv.put("theme", v)
     var accent: String? get() = kv.get("accent"); set(v) = kv.put("accent", v)
-    /** Modo MCP › «Dejar que la IA escuche las grabaciones» (rec_audio): off until the person turns it on. */
+    /** Ajustes › «Dejar que la IA escuche las grabaciones» (rec_audio): off until the person turns it on. */
     var aiListen: Boolean get() = kv.get("ai_listen") == "1"; set(v) = kv.put("ai_listen", if (v) "1" else null)
 
     companion object { val RATES = listOf(44_100, 48_000) }

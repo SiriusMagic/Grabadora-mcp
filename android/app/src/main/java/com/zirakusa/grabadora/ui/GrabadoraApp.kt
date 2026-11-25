@@ -12,7 +12,6 @@ import com.zirakusa.grabadora.R
 import com.zirakusa.grabadora.Session
 import com.zirakusa.grabadora.data.Recording
 import com.zirakusa.grabadora.ui.screens.ListScreen
-import com.zirakusa.grabadora.ui.screens.McpScreen
 import com.zirakusa.grabadora.ui.screens.PlayerScreen
 import com.zirakusa.grabadora.ui.screens.RecordSheet
 import com.zirakusa.grabadora.ui.screens.SettingsScreen
@@ -42,7 +41,7 @@ class AppActions(
     /** «Grabaciones anteriores»: asks for the permission to read audio. */
     val older: () -> Unit = {},
     val copy: (String) -> Unit = {},
-    val goToHub: () -> Unit = {},
+    val openArka: () -> Unit = {},
 )
 
 /** The whole app: the list or a page over it, and the recording sheet on top while recording. */
@@ -52,7 +51,6 @@ class AppActions(
             Page.LIST -> ListScreen(state, actions) { state.open(it); actions.opened(it) }
             Page.PLAYER -> PlayerScreen(state, actions)
             Page.SETTINGS -> SettingsScreen(state, actions)
-            Page.MCP -> McpScreen(actions.copy, actions.goToHub) { state.page = Page.SETTINGS }
         }
         if (Session.active) RecordSheet(actions)
         if (state.askMic) Sheet(stringResource(R.string.mic_title), { state.askMic = false }, stringResource(R.string.mic_continue),
