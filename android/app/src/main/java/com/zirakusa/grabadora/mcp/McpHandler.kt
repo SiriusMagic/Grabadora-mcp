@@ -48,7 +48,7 @@ class McpHandler(private val tokens: () -> List<Token>, private val data: Record
                     "also rename a recording (rec_rename). The AI never records, never hears the audio and cannot delete: deleting " +
                     "is only done by the person on the phone. Errors carry a code (structuredContent.error.code).")
                 .put("_meta", JSONObject().put(TOKEN_META, JSONObject().put("name", token.name).put("kind", "redirect").put("mode", token.access.key)))
-            "ping" -> JSONObject()
+            "ping" -> McpProbeReceipt.accept(id)
             "tools/list" -> JSONObject().put("tools", JSONArray(RecTools.available(token.access).map {
                 JSONObject().put("name", it.name).put("description", it.description).put("inputSchema", it.schema)
                     .put("annotations", JSONObject().put("readOnlyHint", !it.write).put("destructiveHint", false))

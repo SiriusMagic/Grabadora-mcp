@@ -24,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import com.zirakusa.grabadora.data.Names
 import com.zirakusa.grabadora.data.Recording
 import com.zirakusa.grabadora.mcp.McpMode
+import com.zirakusa.grabadora.mcp.showMcpOptions
 import com.zirakusa.grabadora.ui.AppActions
 import com.zirakusa.grabadora.ui.GrabadoraApp
 import com.zirakusa.grabadora.ui.Page
@@ -166,11 +167,7 @@ class MainActivity : ComponentActivity() {
 
     private fun ask(sender: IntentSender, then: () -> Unit) { retry = then; consent.launch(IntentSenderRequest.Builder(sender).build()) }
 
-    /** «Modo MCP» in Ajustes: it is turned on, allowed on the phone and given tokens in Arka, so this opens Arka. */
-    private fun openArka() {
-        val open = packageManager.getLaunchIntentForPackage("com.zirakusa.gatewayhub")
-        if (open != null) startActivity(open) else Toast.makeText(this, R.string.mcp_no_arka, Toast.LENGTH_LONG).show()
-    }
+    private fun openArka() = showMcpOptions(this)
 
     private companion object {
         /** Only to list the recordings made before reinstalling; the app's own need no permission. */

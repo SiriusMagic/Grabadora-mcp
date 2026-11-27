@@ -86,7 +86,7 @@
     <string name="version_title">Version</string>
     <string name="privacy">Privacy policy</string>
     <string name="privacy_text">Grabadora has no ads or analytics. The microphone is used only while you record, when you tap the red button; the AI can never record. Recordings are kept only on this phone, in Music › Grabadora, and the settings, marks and waveforms stay out of cloud backups. Only if you turn on MCP Mode can the AI you connect with a token see the names, dates, lengths, sizes and marks of your recordings and, with a read-and-write token, rename them through the relay. The audio leaves only if you turn on «Let the AI listen to recordings» (in MCP Mode), so a model can transcribe it. Only you delete, on the phone.</string>
-    <string name="mcp_settings_hint">Controlled from Arka: turning it on, allowing it locally and creating tokens.</string>
+    <string name="mcp_settings_hint">Set up local access and redirection to Hub.</string>
     <string name="mcp_title">MCP mode</string>
     <string name="mcp_online">Connected to the internet</string>
     <string name="mcp_connecting">Connecting…</string>
@@ -105,7 +105,7 @@
     <string name="icon_cute">Cute</string>
     <string name="icon_pixel">Pixel</string>
     <string name="icon_hint">Changes the home-screen icon. Some launchers take a few seconds to show it.</string>
-    <string name="mcp_no_arka">Install Arka to turn MCP mode on.</string>
+    <string name="mcp_no_arka">Install Arka to manage Hub connections.</string>
     <string name="mcp_listen">Let the AI listen to recordings</string>
     <string name="mcp_listen_hint">So a model can transcribe them to text: with this on, an AI with a read-and-write token can ask for a recording\'s audio (with its date and time, length and size). Off, the audio never leaves.</string>
 </resources>
